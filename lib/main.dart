@@ -1,5 +1,6 @@
 
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sf;
@@ -12,7 +13,6 @@ const Color navy = Color(0xFF0B1020);
 const Color panel = Color(0xFF182440);
 const Color purple = Color(0xFF8875FF);
 const Color cyan = Color(0xFF64D9F7);
-const Color red = Color(0xFFFF657A);
 
 const List<String> subjects = [
   'مبادئ المحاسبة المالية',
@@ -35,7 +35,7 @@ class NovaApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'NOVA AI Study',
+      title: 'NOVA Study',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
@@ -78,7 +78,11 @@ class _NovaHomeState extends State<NovaHome> {
   String get subject => subjects[subjectIndex];
 
   Map<String, dynamic> get current {
-    return Map<String, dynamic>.from(allData[subject] ?? {});
+    final data = allData[subject];
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return <String, dynamic>{};
   }
 
   String value(String key) => (current[key] ?? '').toString();
@@ -90,16 +94,20 @@ class _NovaHomeState extends State<NovaHome> {
   }
 
   Future<void> loadData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString('nova_data');
-    if (raw != null) {
-      try {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('nova_data');
+
+      if (raw != null) {
         final decoded = jsonDecode(raw);
         if (decoded is Map) {
           allData = Map<String, dynamic>.from(decoded);
         }
-      } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('Load error: $e');
     }
+
     if (mounted) setState(() {});
   }
 
@@ -116,6 +124,7 @@ class _NovaHomeState extends State<NovaHome> {
 
   void toast(String text) {
     if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text)),
     );
@@ -130,40 +139,46 @@ class _NovaHomeState extends State<NovaHome> {
 
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: panel,
-        title: Text(title),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: TextField(
-            controller: controller,
-            minLines: 6,
-            maxLines: 16,
-            textDirection: TextDirection.rtl,
-            decoration: InputDecoration(
-              hintText: hint,
-              alignLabelWithHint: true,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: panel,
+          title: Text(title),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: TextField(
+              controller: controller,
+              minLines: 6,
+              maxLines: 16,
+              textDirection: TextDirection.rtl,
+              textAlign: TextAlign.start,
+              decoration: InputDecoration(
+                hintText: hint,
+                alignLabelWithHint: true,
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await saveValue(key, controller.text);
-              if (dialogContext.mounted) {
-                Navigator.pop(dialogContext);
-              }
-              toast('تم حفظ المحتوى');
-            },
-            child: const Text('حفظ'),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                await saveValue(key, controller.text);
+
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext);
+                }
+
+                toast('تم حفظ المحتوى');
+              },
+              child: const Text('حفظ'),
+            ),
+          ],
+        );
+      },
     );
+
     controller.dispose();
   }
 
@@ -181,6 +196,7 @@ class _NovaHomeState extends State<NovaHome> {
 
       final file = result.files.first;
       final bytes = file.bytes;
+
       if (bytes == null) {
         toast('لم أستطع قراءة الملف من الجهاز');
         return;
@@ -189,6 +205,7 @@ class _NovaHomeState extends State<NovaHome> {
       setState(() => busy = true);
 
       final document = sf.PdfDocument(inputBytes: bytes);
+
       String extracted = '';
       int pages = 0;
 
@@ -235,25 +252,29 @@ class _NovaHomeState extends State<NovaHome> {
 
     try {
       final doc = pw.Document();
+
       final font = await PdfGoogleFonts.notoNaskhArabicRegular();
       final boldFont = await PdfGoogleFonts.notoNaskhArabicBold();
 
-      pw.TextStyle normalStyle({double size = 12}) => pw.TextStyle(
-            font: font,
-            fontSize: size,
-            color: PdfColors.black,
-            lineSpacing: 4,
-          );
+      pw.TextStyle normalStyle({double size = 12}) {
+        return pw.TextStyle(
+          font: font,
+          fontSize: size,
+          color: PdfColors.black,
+          lineSpacing: 4,
+        );
+      }
 
       pw.TextStyle boldStyle({
         double size = 13,
         PdfColor color = PdfColors.black,
-      }) =>
-          pw.TextStyle(
-            font: boldFont,
-            fontSize: size,
-            color: color,
-          );
+      }) {
+        return pw.TextStyle(
+          font: boldFont,
+          fontSize: size,
+          color: color,
+        );
+      }
 
       pw.Widget section(String heading, String content) {
         return pw.Column(
@@ -282,7 +303,9 @@ class _NovaHomeState extends State<NovaHome> {
             ),
             pw.SizedBox(height: 7),
             pw.Text(
-              content.isEmpty ? 'لم تتم إضافة محتويات بعد.' : content,
+              content.isEmpty
+                  ? 'لم تتم إضافة محتويات بعد.'
+                  : content,
               textDirection: pw.TextDirection.rtl,
               style: normalStyle(),
             ),
@@ -301,25 +324,29 @@ class _NovaHomeState extends State<NovaHome> {
             base: font,
             bold: boldFont,
           ),
-          header: (_) => pw.Container(
-            alignment: pw.Alignment.center,
-            padding: const pw.EdgeInsets.only(bottom: 10),
-            child: pw.Text(
-              'NOVA AI STUDY',
-              style: boldStyle(
-                size: 12,
-                color: PdfColors.blue800,
+          header: (_) {
+            return pw.Container(
+              alignment: pw.Alignment.center,
+              padding: const pw.EdgeInsets.only(bottom: 10),
+              child: pw.Text(
+                'NOVA STUDY',
+                style: boldStyle(
+                  size: 12,
+                  color: PdfColors.blue800,
+                ),
               ),
-            ),
-          ),
-          footer: (context) => pw.Container(
-            alignment: pw.Alignment.center,
-            padding: const pw.EdgeInsets.only(top: 8),
-            child: pw.Text(
-              'NOVA AI Study • ${context.pageNumber}',
-              style: normalStyle(size: 9),
-            ),
-          ),
+            );
+          },
+          footer: (context) {
+            return pw.Container(
+              alignment: pw.Alignment.center,
+              padding: const pw.EdgeInsets.only(top: 8),
+              child: pw.Text(
+                'NOVA Study • ${context.pageNumber}',
+                style: normalStyle(size: 9),
+              ),
+            );
+          },
           build: (_) => [
             pw.Center(
               child: pw.Text(
@@ -354,11 +381,13 @@ class _NovaHomeState extends State<NovaHome> {
               pw.SizedBox(height: 8),
               pw.TableHelper.fromTextArray(
                 headers: ['English', 'العربي', 'Explanation'],
-                data: terms.map((r) => [
-                  r[0],
-                  r[1],
-                  r.length > 2 ? r.sublist(2).join(' | ') : '',
-                ]).toList(),
+                data: terms.map((r) {
+                  return [
+                    r[0],
+                    r[1],
+                    r.length > 2 ? r.sublist(2).join(' | ') : '',
+                  ];
+                }).toList(),
                 headerStyle: boldStyle(size: 10),
                 cellStyle: normalStyle(size: 10),
                 headerDecoration: const pw.BoxDecoration(
@@ -383,7 +412,7 @@ class _NovaHomeState extends State<NovaHome> {
               ...questions.asMap().entries.map((entry) {
                 final q = entry.value;
                 final parsed = int.tryParse(q[5]) ?? 1;
-                final correct = parsed.clamp(1, 4);
+                final correct = parsed.clamp(1, 4).toInt();
 
                 return pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.stretch,
@@ -431,17 +460,19 @@ class _NovaHomeState extends State<NovaHome> {
     }
   }
 
-  Widget card(Widget child) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: panel,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white12),
-        ),
-        child: child,
-      );
+  Widget card(Widget child) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: child,
+    );
+  }
 
   Widget action(
     String title,
@@ -473,7 +504,7 @@ class _NovaHomeState extends State<NovaHome> {
         ),
         items: List.generate(
           subjects.length,
-          (i) => DropdownMenuItem(
+          (i) => DropdownMenuItem<int>(
             value: i,
             child: Text(
               subjects[i],
@@ -497,7 +528,7 @@ class _NovaHomeState extends State<NovaHome> {
               Icon(Icons.auto_awesome, color: cyan, size: 48),
               SizedBox(height: 10),
               Text(
-                'NOVA AI STUDY',
+                'NOVA STUDY',
                 style: TextStyle(
                   fontSize: 25,
                   fontWeight: FontWeight.bold,
@@ -532,10 +563,12 @@ class _NovaHomeState extends State<NovaHome> {
           (i) => action(
             subjects[i],
             Icons.menu_book,
-            () => setState(() {
-              subjectIndex = i;
-              tab = 1;
-            }),
+            () {
+              setState(() {
+                subjectIndex = i;
+                tab = 1;
+              });
+            },
           ),
         ),
       ],
@@ -565,24 +598,18 @@ class _NovaHomeState extends State<NovaHome> {
           () => editContent(
             'notes',
             'الشرح المبسط',
-            hint: 'اكتب عنوان كل جزء، الشرح العربي، المصطلحات الإنجليزية، والأمثلة.',
+            hint: 'اكتب الشرح بالعربي والمصطلحات الإنجليزية والأمثلة.',
           ),
         ),
         action(
           'القوانين والقواعد',
           Icons.calculate_outlined,
-          () => editContent(
-            'laws',
-            'القوانين والقواعد المهمة',
-          ),
+          () => editContent('laws', 'القوانين والقواعد المهمة'),
         ),
         action(
           'الكلمات المفتاحية',
           Icons.key,
-          () => editContent(
-            'keywords',
-            'الكلمات والعبارات المهمة',
-          ),
+          () => editContent('keywords', 'الكلمات والعبارات المهمة'),
         ),
         action(
           'إضافة المصطلحات في جدول',
@@ -590,8 +617,7 @@ class _NovaHomeState extends State<NovaHome> {
           () => editContent(
             'terms',
             'جدول المصطلحات',
-            hint:
-                'كل سطر بالشكل التالي:\n'
+            hint: 'كل سطر بالشكل التالي:\n'
                 'English term | المصطلح العربي | Explanation\n'
                 'Assets | الأصول | Economic resources',
           ),
@@ -602,8 +628,7 @@ class _NovaHomeState extends State<NovaHome> {
           () => editContent(
             'questions',
             'بنك الأسئلة',
-            hint:
-                'كل سؤال في سطر واحد، وافصل الخانات بعلامة |\n'
+            hint: 'كل سؤال في سطر واحد، وافصل الخانات بعلامة |\n'
                 'Question | Option A | Option B | Option C | Option D | رقم الإجابة الصحيحة (1-4) | الشرح\n'
                 'What is an asset? | Cash | Loan | Expense | Loss | 1 | Cash is a resource',
           ),
@@ -745,7 +770,7 @@ class _NovaHomeState extends State<NovaHome> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text(
-            'NOVA AI Study',
+            'NOVA Study',
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           actions: const [
@@ -828,10 +853,12 @@ class _ExamScreenState extends State<ExamScreen> {
 
   int get score {
     int result = 0;
+
     for (int i = 0; i < questions.length; i++) {
       final correct = int.tryParse(questions[i][5]) ?? 0;
       if (selected[i] == correct) result++;
     }
+
     return result;
   }
 
@@ -865,7 +892,9 @@ class _ExamScreenState extends State<ExamScreen> {
                         ),
                       ),
                       Text(
-                        '${(score * 100 / questions.length).round()}%',
+                        questions.isEmpty
+                            ? '0%'
+                            : '${(score * 100 / questions.length).round()}%',
                         style: const TextStyle(
                           color: cyan,
                           fontSize: 20,
@@ -878,7 +907,8 @@ class _ExamScreenState extends State<ExamScreen> {
             ...questions.asMap().entries.map((entry) {
               final i = entry.key;
               final q = entry.value;
-              final answer = (int.tryParse(q[5]) ?? 1).clamp(1, 4);
+              final answer =
+                  (int.tryParse(q[5]) ?? 1).clamp(1, 4).toInt();
 
               return Card(
                 color: panel,
@@ -899,6 +929,7 @@ class _ExamScreenState extends State<ExamScreen> {
                       const SizedBox(height: 8),
                       ...List.generate(4, (optionIndex) {
                         final option = optionIndex + 1;
+
                         return RadioListTile<int>(
                           contentPadding: EdgeInsets.zero,
                           dense: true,
@@ -926,9 +957,7 @@ class _ExamScreenState extends State<ExamScreen> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'التفسير: ${q.sublist(6).join(' | ')}',
-                        ),
+                        Text('التفسير: ${q.sublist(6).join(' | ')}'),
                       ],
                     ],
                   ),
@@ -953,6 +982,7 @@ class _ExamScreenState extends State<ExamScreen> {
                         );
                         return;
                       }
+
                       setState(() => corrected = true);
                     },
               icon: Icon(
