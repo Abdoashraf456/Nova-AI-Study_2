@@ -1,21 +1,22 @@
 
 name: nova_study
-description: NOVA AI Study - University study app
+description: NOVA Study - University Study Assistant
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: '>=3.7.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
+
   cupertino_icons: ^1.0.8
-  file_picker: ^8.3.7
-  syncfusion_flutter_pdf: ^28.2.12
+  file_picker: ^10.3.10
+  syncfusion_flutter_pdf: ^32.1.25
+  shared_preferences: ^2.5.3
   pdf: ^3.11.3
   printing: ^5.14.2
-  shared_preferences: ^2.5.2
 
 dev_dependencies:
   flutter_test:
